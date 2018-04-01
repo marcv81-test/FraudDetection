@@ -39,16 +39,14 @@ split_test_ranges('split_test2.h5', 2017, 11, 8)
 split_test_ranges('split_test3.h5', 2017, 11, 9)
 
 def split_tiny(hdf5_file, y, m, d):
-    """Extracts a 30 minutes time range from a single day
+    """Extracts a 1 hour time range from a single day
     of the training dataset. Saves as HDF5."""
     print('Creating', hdf5_file)
     sub_dataset = dataset[
         (dataset['click_time'].dt.year == y) &
         (dataset['click_time'].dt.month == m) &
         (dataset['click_time'].dt.day == d) &
-        (dataset['click_time'].dt.hour == 12) &
-        (dataset['click_time'].dt.minute >= 0) &
-        (dataset['click_time'].dt.minute < 30)]
+        (dataset['click_time'].dt.hour == 15)]
     store = pandas.HDFStore(hdf5_file)
     store.put('dataset', sub_dataset)
     store.close()
