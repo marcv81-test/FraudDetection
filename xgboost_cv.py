@@ -9,6 +9,9 @@ y_columns = ['is_attributed']
 train_files = ('feat_day1.h5', 'feat_day2.h5', 'feat_day3.h5')
 test_files = ('feat_test1.h5', 'feat_test2.h5', 'feat_test3.h5')
 
+submission_id_file = 'id_test.h5'
+submission_feat_file = 'feat_test.h5'
+
 def downsample(dataset, n):
     """Downsamples a training dataset. Selects all the attributed clicks.
     Randomly selects N times as many non-attributed clicks. Shuffles the results."""
@@ -37,6 +40,13 @@ def load_multi_train(filenames, downsample_n):
         ys.append(y)
     return numpy.concatenate(xs), numpy.concatenate(ys)
 
+def load_test(filename):
+    """Loads a test dataset."""
+    print('Loading', filename)
+    dataset = pandas.read_hdf(filename)
+    x = dataset.as_matrix(columns=x_columns)
+    return x
+
 def cv_train_dataset(n, downsample_n):
     """Returns the cross-validation training dataset for one of the splits."""
     assert n in (0, 1, 2)
@@ -57,7 +67,7 @@ def cv_score(n, max_depth, n_estimators, downsample_n):
     """Returns the cross-validation AUROC score on one of the splits."""
     x_train, y_train = cv_train_dataset(n, downsample_n)
     model = xgboost.XGBRegressor(
-        n_jobs=4,
+        n_jobs=4, tree_method='exact',
         max_depth=max_depth,
         n_estimators=n_estimators,
         scale_pos_weight=downsample_n)
@@ -66,13 +76,41 @@ def cv_score(n, max_depth, n_estimators, downsample_n):
     x_test, y_test = cv_test_dataset(n)
     print('Predicting')
     y_predict = model.predict(x_test)
+    y_predict[y_predict < 0] = 0
+    y_predict[y_predict > 1] = 1
     print('Scoring')
     score = sklearn.metrics.roc_auc_score(y_test, y_predict)
     print('Score', n, score)
     return score
 
+def submit(filename, max_depth, n_estimators, downsample_n):
+    x_train, y_train = load_multi_train(train_files, downsample_n)
+    model = xgboost.XGBRegressor(
+        n_jobs=4, tree_method='exact',
+        max_depth=max_depth,
+        n_estimators=n_estimators,
+        scale_pos_weight=downsample_n)
+    print('Training')
+    model.fit(x_train, y_train)
+    x_test = load_test(submission_feat_file)
+    print('Predicting')
+    y_predict = model.predict(x_test)
+    y_predict[y_predict < 0] = 0
+    y_predict[y_predict > 1] = 1
+    print('Saving', filename)
+    dataset = pandas.read_hdf(submission_id_file)
+    dataset['is_attributed'] = y_predict
+    dataset.to_csv(filename, index=False)
+
+max_depth = 12
+n_estimators = 20
+downsample_n = 9
+
 score = 0
 for i in range(3):
-    score += cv_score(i, 10, 100, 9)
+    score += cv_score(i, max_depth, n_estimators, downsample_n)
 score /= 3
 print('Average score', score)
+
+submission_csv_file = 'submission_' + ('%.6f' % score) + '.csv'
+submit(submission_csv_file, max_depth, n_estimators, downsample_n)

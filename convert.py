@@ -39,4 +39,4 @@ def click_id_to_hdf5(csv_file, hdf5_file):
 
 csv_to_hdf5('train.csv', 'train.h5', train_columns)
 csv_to_hdf5('test.csv', 'test.h5', test_columns)
-click_id_to_hdf5('test.csv', 'test_id.h5')
+click_id_to_hdf5('test.csv', 'id_test.h5')
