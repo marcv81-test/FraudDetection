@@ -1,8 +1,16 @@
+cycler==0.10.0
+kiwisolver==1.0.1
+matplotlib==2.2.2
 numexpr==2.6.4
 numpy==1.14.2
 pandas==0.22.0
 pkg-resources==0.0.0
+pyparsing==2.2.0
 python-dateutil==2.7.1
 pytz==2018.3
+scikit-learn==0.19.1
+scipy==1.0.1
 six==1.11.0
+sklearn==0.0
 tables==3.4.2
+-e git+https://github.com/dmlc/xgboost.git@017acf54d9ab5347807880a895fa1d76d0cd9cf2#egg=xgboost&subdirectory=python-package
