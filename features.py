@@ -19,31 +19,38 @@ def clicks_per_ip_in_time_range(dataset, minutes):
         dataset['ip'],
     ])['ip'].transform('count').astype('uint16')
 
-def features_train(in_file, out_file):
+def add_features_train(in_file, out_file, downsample=False):
     """Adds features to a training dataset."""
     print('Loading', in_file)
     dataset = pandas.read_hdf(in_file)
     print('Engineering features')
     dataset['ssm'] = seconds_since_midnight(dataset)
     dataset['1m_ip'] = clicks_per_ip_in_time_range(dataset, 1)
-    dataset['2m_ip'] = clicks_per_ip_in_time_range(dataset, 2)
-    dataset['5m_ip'] = clicks_per_ip_in_time_range(dataset, 5)
     dataset['10m_ip'] = clicks_per_ip_in_time_range(dataset, 10)
-    dataset['30m_ip'] = clicks_per_ip_in_time_range(dataset, 30)
     dataset['60m_ip'] = clicks_per_ip_in_time_range(dataset, 60)
+    if downsample:
+        print('Downsampling')
+        dataset = downsample_train(dataset)
     print('Converting to Numpy arrays')
     x = dataset.as_matrix(columns=[
         'app', 'device', 'os', 'channel', 'ssm'
-        '1m_ip', '2m_ip', '5m_ip', '10m_ip', '30m_ip', '60m_ip'])
+        '1m_ip', '10m_ip', '60m_ip'])
     y = dataset.as_matrix(columns=['is_attributed'])
     print('Saving', out_file)
     numpy.savez(out_file, x, y)
     gc.collect()
 
-features_train('split_tiny1.h5', 'fe_tiny1.npz')
-features_train('split_tiny2.h5', 'fe_tiny2.npz')
-features_train('split_tiny3.h5', 'fe_tiny3.npz')
+def downsample_train(dataset, n=9):
+    """Downsamples a training dataset. Selects all the attributed clicks.
+    Randomly selects N times as many non-attributed clicks. Shuffles the results."""
+    attributed = dataset[dataset['is_attributed'] == True]
+    not_attributed = dataset[dataset['is_attributed'] == False].sample(n=n*len(attributed))
+    return attributed.append(not_attributed).sample(frac=1)
 
-features_train('split_test1.h5', 'fe_test1.npz')
-features_train('split_test2.h5', 'fe_test2.npz')
-features_train('split_test3.h5', 'fe_test3.npz')
+add_features_train('split_day1.h5', 'fe_day1.npz', downsample=True)
+add_features_train('split_day2.h5', 'fe_day2.npz', downsample=True)
+add_features_train('split_day3.h5', 'fe_day3.npz', downsample=True)
+
+add_features_train('split_test1.h5', 'fe_test1.npz')
+add_features_train('split_test2.h5', 'fe_test2.npz')
+add_features_train('split_test3.h5', 'fe_test3.npz')
