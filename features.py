@@ -18,27 +18,56 @@ def clicks_per_ip_in_time_range(dataset, minutes):
         dataset['ip'],
     ])['ip'].transform('count').astype('uint16')
 
-def add_features(in_file, out_file):
-    """Adds features to a dataset."""
-    print('Loading', in_file)
-    dataset = pandas.read_hdf(in_file)
-    print('Adding features')
+def feature_engineering(dataset):
+    """Applies feature engineering to a dataset."""
+    print('Feature engineering')
     dataset['ssm'] = seconds_since_midnight(dataset)
     dataset['1m_ip'] = clicks_per_ip_in_time_range(dataset, 1)
     dataset['10m_ip'] = clicks_per_ip_in_time_range(dataset, 10)
     dataset['60m_ip'] = clicks_per_ip_in_time_range(dataset, 60)
+    dataset.drop(['click_time', 'ip'], axis=1, inplace=True)
+
+def downsample(dataset, n):
+    """Downsamples a training dataset. Selects all the attributed clicks.
+    Randomly selects N times as many non-attributed clicks. Shuffles the results."""
+    print('Downsampling')
+    attributed = dataset[dataset['is_attributed'] == True]
+    not_attributed = dataset[dataset['is_attributed'] == False].sample(n=n*len(attributed))
+    return attributed.append(not_attributed).sample(frac=1)
+
+def process(basename):
+    """Opens a dataset, applies feature engineering, and saves the results."""
+    in_file = 'cache/' + basename + '.h5'
+    print('Loading', in_file)
+    dataset = pandas.read_hdf(in_file)
+    feature_engineering(dataset)
+    out_file = 'cache/feat_' + basename + '.h5'
     print('Saving', out_file)
     store = pandas.HDFStore(out_file)
     store.put('dataset', dataset)
     store.close()
-    gc.collect()
 
-add_features('split_day1.h5', 'feat_day1.h5')
-add_features('split_day2.h5', 'feat_day2.h5')
-add_features('split_day3.h5', 'feat_day3.h5')
+def process_downsample(basename, n_downsample=(1, 2, 3, 4, 9, 19)):
+    """Opens a dataset, applies feature engineering, and saves
+    different downsampled versions of the results."""
+    in_file = 'cache/' + basename + '.h5'
+    print('Loading', in_file)
+    dataset = pandas.read_hdf(in_file)
+    feature_engineering(dataset)
+    for n in n_downsample:
+        sub_dataset = downsample(dataset, n)
+        out_file = 'cache/feat_ds' + str(n) + '_' + basename + '.h5'
+        print('Saving', out_file)
+        store = pandas.HDFStore(out_file)
+        store.put('dataset', sub_dataset)
+        store.close()
+        gc.collect()
 
-add_features('split_test1.h5', 'feat_test1.h5')
-add_features('split_test2.h5', 'feat_test2.h5')
-add_features('split_test3.h5', 'feat_test3.h5')
+process_downsample('day1')
+process_downsample('day2')
+process_downsample('day3')
 
-add_features('test.h5', 'feat_test.h5')
+process('day1_test')
+process('day2_test')
+process('day3_test')
+process('test')
