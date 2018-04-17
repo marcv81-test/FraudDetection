@@ -4,7 +4,10 @@ import random
 import scipy.stats
 import xgboost
 
-x_columns = ['app', 'device', 'os', 'channel', 'ssm', '1m_ip', '10m_ip', '60m_ip']
+x_columns = [
+    'app', 'device', 'os', 'channel', 'ssm',
+    '2m_ip', '10m_ip', '60m_ip',
+    '2m_ip_app_channel', '10m_ip_app_channel', '60m_ip_app_channel']
 y_columns = ['is_attributed']
 
 # Cross-validation
@@ -49,7 +52,7 @@ def score_cv_split(n_split, params, best_stop):
             evals=[(dtest, 'test')],
             evals_result=results,
             num_boost_round=1000,
-            early_stopping_rounds=10,
+            early_stopping_rounds=25,
             verbose_eval=False)
     else:
         model = xgboost.train(
@@ -58,7 +61,14 @@ def score_cv_split(n_split, params, best_stop):
             evals_result=results,
             num_boost_round=params['num_boost_round'],
             verbose_eval=False)
-    return results['test']['auc']
+    results = results['test']['auc']
+    best_auc, best_i = 0, 0
+    for i, auc in enumerate(results):
+        if auc > best_auc:
+            best_auc, best_i = auc, i
+    best = (best_auc, best_i + 1)
+    print(best)
+    return results
 
 def score_cv_all_splits(params, best_stop):
     """Returns the best average AUROC score on all of the cross-validation splits
@@ -74,7 +84,9 @@ def score_cv_all_splits(params, best_stop):
         auc = numpy.mean([result[i] for result in results])
         if auc > best_auc:
             best_auc, best_i = auc, i
-    return best_auc, best_i + 1
+    best = (best_auc, best_i + 1)
+    print(best)
+    return best
 
 # Submission
 
@@ -116,20 +128,25 @@ def submit(params):
 
 # Main
 
-# 0.97367 CV
+# 0.97475
 params_best = {
-    'n_downsample': 19,
-    'num_boost_round': 65,
+    'n_downsample': 49,
+    'num_boost_round': 147,
     'tree_params': {
-        'scale_pos_weight': 19,
-        'max_depth': 11,
-        'min_child_weight': 100,
+        'scale_pos_weight': 49,
+        'max_depth': 9,
+        'min_child_weight': 50,
         'subsample': 1,
-        'colsample_bytree': 0.95,
+        'colsample_bytree': 0.9,
         'eta': 0.1,
-        'tree_method': 'exact'
+        'tree_method': 'exact',
     }
 }
 
-print(score_cv_all_splits(params_best, best_stop=False))
 submit(params_best)
+
+#for params in [params_best]:
+#    score, num_boost_round = score_cv_all_splits(params, best_stop=True)
+#    params['num_boost_round'] = num_boost_round
+#    with open('search.txt' , 'a') as stream:
+#        stream.write(str((score, params)) + '\n')

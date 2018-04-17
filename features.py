@@ -9,22 +9,35 @@ def seconds_since_midnight(dataset):
         (dataset['click_time'].dt.second)
     ).astype('uint32')
 
-def clicks_per_ip_in_time_range(dataset, minutes):
+def clicks_per_ip(dataset, minutes):
     """Feature engineering: clicks per IP in a range of N minutes."""
     assert 60 % minutes == 0
     assert minutes <= 60
+    print('clicks_per_ip', minutes)
     return dataset.groupby([
         dataset['click_time'].astype('int64') // (minutes * 60 * int(1e9)),
         dataset['ip'],
+    ])['ip'].transform('count').astype('uint16')
+
+def clicks_per_ip_app_channel(dataset, minutes):
+    assert 60 % minutes == 0
+    assert minutes <= 60
+    print('clicks_per_ip_app_channel', minutes)
+    return dataset.groupby([
+        dataset['click_time'].astype('int64') // (minutes * 60 * int(1e9)),
+        dataset['ip'], dataset['app'], dataset['channel'],
     ])['ip'].transform('count').astype('uint16')
 
 def feature_engineering(dataset):
     """Applies feature engineering to a dataset."""
     print('Feature engineering')
     dataset['ssm'] = seconds_since_midnight(dataset)
-    dataset['1m_ip'] = clicks_per_ip_in_time_range(dataset, 1)
-    dataset['10m_ip'] = clicks_per_ip_in_time_range(dataset, 10)
-    dataset['60m_ip'] = clicks_per_ip_in_time_range(dataset, 60)
+    dataset['2m_ip'] = clicks_per_ip(dataset, 2)
+    dataset['10m_ip'] = clicks_per_ip(dataset, 10)
+    dataset['60m_ip'] = clicks_per_ip(dataset, 60)
+    dataset['2m_ip_app_channel'] = clicks_per_ip_app_channel(dataset, 2)
+    dataset['10m_ip_app_channel'] = clicks_per_ip_app_channel(dataset, 10)
+    dataset['60m_ip_app_channel'] = clicks_per_ip_app_channel(dataset, 60)
     dataset.drop(['click_time', 'ip'], axis=1, inplace=True)
 
 def downsample(dataset, n):
@@ -47,7 +60,7 @@ def process(basename):
     store.put('dataset', dataset)
     store.close()
 
-def process_downsample(basename, n_downsample=(1, 2, 3, 4, 9, 19)):
+def process_downsample(basename, n_downsample=(1, 19, 49)):
     """Opens a dataset, applies feature engineering, and saves
     different downsampled versions of the results."""
     in_file = 'cache/' + basename + '.h5'
