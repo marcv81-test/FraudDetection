@@ -18,11 +18,12 @@ def load_cv_train(n_split, n_downsample):
     xs, ys = [], []
     for n_day in range(1, 4):
         if n_day != n_split:
-            in_file = 'cache/feat_ds' + str(n_downsample) + '_day' + str(n_day) + '.h5'
-            print('Loading', in_file)
-            dataset = pandas.read_hdf(in_file)
-            xs.append(dataset.as_matrix(columns=x_columns))
-            ys.append(dataset.as_matrix(columns=y_columns))
+            for r in range(4):
+                in_file = 'cache/feat_ds' + str(n_downsample) + '_day' + str(n_day) + '-' + str(r) + '.h5'
+                print('Loading', in_file)
+                dataset = pandas.read_hdf(in_file)
+                xs.append(dataset.as_matrix(columns=x_columns))
+                ys.append(dataset.as_matrix(columns=y_columns))
     return numpy.concatenate(xs), numpy.concatenate(ys)
 
 def load_cv_test(n_split):
@@ -94,11 +95,12 @@ def load_full_train(n_downsample):
     """Returns the entire training dataset."""
     xs, ys = [], []
     for n_day in range(1, 4):
-        in_file = 'cache/feat_ds' + str(n_downsample) + '_day' + str(n_day) + '.h5'
-        print('Loading', in_file)
-        dataset = pandas.read_hdf(in_file)
-        xs.append(dataset.as_matrix(columns=x_columns))
-        ys.append(dataset.as_matrix(columns=y_columns))
+        for r in range(4):
+            in_file = 'cache/feat_ds' + str(n_downsample) + '_day' + str(n_day) + '-' + str(r) + '.h5'
+            print('Loading', in_file)
+            dataset = pandas.read_hdf(in_file)
+            xs.append(dataset.as_matrix(columns=x_columns))
+            ys.append(dataset.as_matrix(columns=y_columns))
     return numpy.concatenate(xs), numpy.concatenate(ys)
 
 def load_full_test():
@@ -143,10 +145,17 @@ params_best = {
     }
 }
 
-submit(params_best)
+params = {
+    'n_downsample': 1,
+    'tree_params': {
+        'max_depth': 11,
+        'eta': 0.2,
+        'tree_method': 'exact',
+    }
+}
+score, num_boost_round = score_cv_all_splits(params, best_stop=True)
+params['num_boost_round'] = num_boost_round
+#with open('search.txt' , 'a') as stream:
+#    stream.write(str((score, params)) + '\n')
 
-#for params in [params_best]:
-#    score, num_boost_round = score_cv_all_splits(params, best_stop=True)
-#    params['num_boost_round'] = num_boost_round
-#    with open('search.txt' , 'a') as stream:
-#        stream.write(str((score, params)) + '\n')
+# submit(params_best)

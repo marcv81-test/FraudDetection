@@ -7,16 +7,20 @@ dataset = pandas.read_hdf(in_file)
 
 def split_day(basename, y, m, d):
     """Extracts a single day from the training dataset. Saves as HDF5."""
-    out_file = 'cache/' + basename + '.h5'
-    print('Creating', out_file)
-    sub_dataset = dataset[
-        (dataset['click_time'].dt.year == y) &
-        (dataset['click_time'].dt.month == m) &
-        (dataset['click_time'].dt.day == d)]
-    store = pandas.HDFStore(out_file)
-    store.put('dataset', sub_dataset)
-    store.close()
-    gc.collect()
+    for r in range(4):
+        out_file = 'cache/' + basename + '-' + str(r) + '.h5'
+        print('Creating', out_file)
+        hours = [(6 * r) + i for i in range(6)]
+        print('Hours', hours)
+        sub_dataset = dataset[
+            (dataset['click_time'].dt.year == y) &
+            (dataset['click_time'].dt.month == m) &
+            (dataset['click_time'].dt.day == d) &
+            (dataset['click_time'].dt.hour.isin(hours))]
+        store = pandas.HDFStore(out_file)
+        store.put('dataset', sub_dataset)
+        store.close()
+        gc.collect()
 
 split_day('day1', 2017, 11, 7)
 split_day('day2', 2017, 11, 8)

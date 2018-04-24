@@ -60,7 +60,7 @@ def process(basename):
     store.put('dataset', dataset)
     store.close()
 
-def process_downsample(basename, n_downsample=(1, 19, 49)):
+def process_downsample(basename, n_downsample=[1]):
     """Opens a dataset, applies feature engineering, and saves
     different downsampled versions of the results."""
     in_file = 'cache/' + basename + '.h5'
@@ -76,11 +76,8 @@ def process_downsample(basename, n_downsample=(1, 19, 49)):
         store.close()
         gc.collect()
 
-process_downsample('day1')
-process_downsample('day2')
-process_downsample('day3')
-
-process('day1_test')
-process('day2_test')
-process('day3_test')
+for d in range(1, 4):
+    for r in range(4):
+        process_downsample('day' + str(d) + '-' + str(r))
+    process('day' + str(d) + '_test')
 process('test')
