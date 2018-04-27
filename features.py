@@ -1,44 +1,62 @@
 import pandas
 import gc
 
-def seconds_since_midnight(dataset):
-    """Feature engineering: seconds since midnight."""
-    return (
-        (dataset['click_time'].dt.hour * 3600) +
-        (dataset['click_time'].dt.minute * 60) +
-        (dataset['click_time'].dt.second)
+def engineer_time(dataset):
+    """Engineers the time to seconds since midnight
+    and a unique identifier for each hour since 1970."""
+    print('Engineering time')
+    dataset['day_seconds'] = (
+        60 * 60 * dataset['click_time'].dt.hour +
+        60 * dataset['click_time'].dt.minute +
+        dataset['click_time'].dt.second
+    ).astype('uint32')
+    dataset['60m'] = (
+        dataset['click_time'].astype('int64') // (60 * 60 * int(1e9))
     ).astype('uint32')
 
-def clicks_per_ip(dataset, minutes):
-    """Feature engineering: clicks per IP in a range of N minutes."""
-    assert 60 % minutes == 0
-    assert minutes <= 60
-    print('clicks_per_ip', minutes)
-    return dataset.groupby([
-        dataset['click_time'].astype('int64') // (minutes * 60 * int(1e9)),
-        dataset['ip'],
-    ])['ip'].transform('count').astype('uint16')
+def engineer_clicks_per_group(dataset, group):
+    """Engineers the number of clicks per group of other features."""
+    name = 'clicks_per_' + '_'.join(group)
+    print('Engineering', name)
+    dataset[name] = pandas.Series(data=0, index=dataset.index, dtype='uint16')
+    dataset[name] = dataset[[name] + group].groupby(group).transform('count')
 
-def clicks_per_ip_app_channel(dataset, minutes):
-    assert 60 % minutes == 0
-    assert minutes <= 60
-    print('clicks_per_ip_app_channel', minutes)
-    return dataset.groupby([
-        dataset['click_time'].astype('int64') // (minutes * 60 * int(1e9)),
-        dataset['ip'], dataset['app'], dataset['channel'],
-    ])['ip'].transform('count').astype('uint16')
+def engineer_group(dataset, group):
+    """Engineers additionnal groups. Group IDs will not match
+    across splits; learning should not rely on such features."""
+    name = '_'.join(group)
+    print('Engineering', name)
+    dataset[name] = dataset[group].groupby(group).grouper.group_info[0]
+
+def engineer_unique_feature_per_group(dataset, feature, group):
+    """Engineers the number of unique features per group of features. Slow."""
+    name = 'unique_' + feature + '_per_' + '_'.join(group)
+    print('Engineering', name)
+    dataset[name] = dataset[[feature] + group].groupby(group).transform('nunique')
 
 def feature_engineering(dataset):
     """Applies feature engineering to a dataset."""
     print('Feature engineering')
-    dataset['ssm'] = seconds_since_midnight(dataset)
-    dataset['2m_ip'] = clicks_per_ip(dataset, 2)
-    dataset['10m_ip'] = clicks_per_ip(dataset, 10)
-    dataset['60m_ip'] = clicks_per_ip(dataset, 60)
-    dataset['2m_ip_app_channel'] = clicks_per_ip_app_channel(dataset, 2)
-    dataset['10m_ip_app_channel'] = clicks_per_ip_app_channel(dataset, 10)
-    dataset['60m_ip_app_channel'] = clicks_per_ip_app_channel(dataset, 60)
-    dataset.drop(['click_time', 'ip'], axis=1, inplace=True)
+    engineer_time(dataset)
+    engineer_group(dataset, ['device', 'os'])
+    engineer_group(dataset, ['app', 'channel'])
+    engineer_group(dataset, ['device', 'os', 'app', 'channel'])
+    engineer_unique_feature_per_group(dataset, 'device', ['60m', 'ip'])
+    engineer_unique_feature_per_group(dataset, 'os', ['60m', 'ip'])
+    engineer_unique_feature_per_group(dataset, 'device_os', ['60m', 'ip'])
+    engineer_unique_feature_per_group(dataset, 'app', ['60m', 'ip'])
+    engineer_unique_feature_per_group(dataset, 'channel', ['60m', 'ip'])
+    engineer_unique_feature_per_group(dataset, 'app_channel', ['60m', 'ip'])
+    engineer_unique_feature_per_group(dataset, 'device_os_app_channel', ['60m', 'ip'])
+    engineer_clicks_per_group(dataset, ['60m', 'ip'])
+    engineer_clicks_per_group(dataset, ['60m', 'ip', 'device_os'])
+    engineer_clicks_per_group(dataset, ['60m', 'ip', 'app_channel'])
+    engineer_clicks_per_group(dataset, ['60m', 'ip', 'device_os_app_channel'])
+    dataset.drop([
+        'click_time', '60m', 'ip',
+        'device_os', 'app_channel', 'device_os_app_channel'
+    ], axis=1, inplace=True)
+    print(dataset.dtypes)
 
 def downsample(dataset, n):
     """Downsamples a training dataset. Selects all the attributed clicks.
@@ -59,8 +77,9 @@ def process(basename):
     store = pandas.HDFStore(out_file)
     store.put('dataset', dataset)
     store.close()
+    gc.collect()
 
-def process_downsample(basename, n_downsample=[1]):
+def process_downsample(basename, n_downsample=[1, 19, 49]):
     """Opens a dataset, applies feature engineering, and saves
     different downsampled versions of the results."""
     in_file = 'cache/' + basename + '.h5'

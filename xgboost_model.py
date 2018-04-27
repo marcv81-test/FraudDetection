@@ -5,9 +5,14 @@ import scipy.stats
 import xgboost
 
 x_columns = [
-    'app', 'device', 'os', 'channel', 'ssm',
-    '2m_ip', '10m_ip', '60m_ip',
-    '2m_ip_app_channel', '10m_ip_app_channel', '60m_ip_app_channel']
+    'app', 'device', 'os', 'channel',
+    'day_seconds',
+    'clicks_per_60m_ip',
+    'clicks_per_60m_ip_device_os',
+    'clicks_per_60m_ip_app_channel',
+    'clicks_per_60m_ip_device_os_app_channel',
+    'unique_os_per_60m_ip',
+]
 y_columns = ['is_attributed']
 
 # Cross-validation
@@ -130,32 +135,6 @@ def submit(params):
 
 # Main
 
-# 0.97475
-params_best = {
-    'n_downsample': 49,
-    'num_boost_round': 147,
-    'tree_params': {
-        'scale_pos_weight': 49,
-        'max_depth': 9,
-        'min_child_weight': 50,
-        'subsample': 1,
-        'colsample_bytree': 0.9,
-        'eta': 0.1,
-        'tree_method': 'exact',
-    }
-}
-
-params = {
-    'n_downsample': 1,
-    'tree_params': {
-        'max_depth': 11,
-        'eta': 0.2,
-        'tree_method': 'exact',
-    }
-}
-score, num_boost_round = score_cv_all_splits(params, best_stop=True)
-params['num_boost_round'] = num_boost_round
-#with open('search.txt' , 'a') as stream:
-#    stream.write(str((score, params)) + '\n')
-
-# submit(params_best)
+# CV 0.976332
+params = {'tree_params': {'scale_pos_weight': 49, 'colsample_bytree': 0.9, 'eta': 0.05, 'subsample': 0.9, 'max_depth': 11, 'min_child_weight': 3, 'tree_method': 'exact'}, 'n_downsample': 49, 'num_boost_round': 154}
+submit(params)
