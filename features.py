@@ -29,10 +29,10 @@ def engineer_group(dataset, group):
     dataset[name] = dataset[group].groupby(group).grouper.group_info[0]
 
 def engineer_unique_feature_per_group(dataset, feature, group):
-    """Engineers the number of unique features per group of features. Slow."""
+    """Engineers the number of unique features per group of features."""
     name = 'unique_' + feature + '_per_' + '_'.join(group)
     print('Engineering', name)
-    dataset[name] = dataset[[feature] + group].groupby(group).transform('nunique')
+    dataset[name] = dataset[[feature] + group].groupby(group)[feature].transform('nunique')
 
 def feature_engineering(dataset):
     """Applies feature engineering to a dataset."""
@@ -41,13 +41,7 @@ def feature_engineering(dataset):
     engineer_group(dataset, ['device', 'os'])
     engineer_group(dataset, ['app', 'channel'])
     engineer_group(dataset, ['device', 'os', 'app', 'channel'])
-    engineer_unique_feature_per_group(dataset, 'device', ['60m', 'ip'])
     engineer_unique_feature_per_group(dataset, 'os', ['60m', 'ip'])
-    engineer_unique_feature_per_group(dataset, 'device_os', ['60m', 'ip'])
-    engineer_unique_feature_per_group(dataset, 'app', ['60m', 'ip'])
-    engineer_unique_feature_per_group(dataset, 'channel', ['60m', 'ip'])
-    engineer_unique_feature_per_group(dataset, 'app_channel', ['60m', 'ip'])
-    engineer_unique_feature_per_group(dataset, 'device_os_app_channel', ['60m', 'ip'])
     engineer_clicks_per_group(dataset, ['60m', 'ip'])
     engineer_clicks_per_group(dataset, ['60m', 'ip', 'device_os'])
     engineer_clicks_per_group(dataset, ['60m', 'ip', 'app_channel'])
