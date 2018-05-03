@@ -5,12 +5,12 @@ import gc
 train_columns = ['ip', 'app', 'device', 'os', 'channel', 'click_time', 'is_attributed']
 test_columns = ['ip', 'app', 'device', 'os', 'channel', 'click_time']
 dtypes = {
-    'ip': 'uint32',
-    'app': 'uint16',
-    'device': 'uint16',
-    'os': 'uint16',
-    'channel': 'uint16',
     'is_attributed': 'bool',
+    'ip': 'uint64',
+    'app': 'uint32',
+    'device': 'uint32',
+    'os': 'uint32',
+    'channel': 'uint32',
 }
 
 def convert_dataset(basename, columns):
@@ -18,6 +18,13 @@ def convert_dataset(basename, columns):
     in_file = basename + '.csv'
     print('Loading', in_file)
     dataset = pandas.read_csv(in_file, usecols=columns, dtype=dtypes)
+    # Safety check before converting to uint32
+    assert dataset['ip'].max() < pow(2, 32)
+    dataset['ip'] = dataset['ip'].astype('uint32')
+    # Safety checks before converting to uint16
+    for feature in ('app', 'device', 'os', 'channel'):
+        assert dataset[feature].max() < pow(2, 16)
+        dataset[feature] = dataset[feature].astype('uint16')
     tz_china = pytz.timezone('Asia/Shanghai')
     dataset['click_time'] = pandas.to_datetime(dataset['click_time'])
     dataset['click_time'] = dataset['click_time'].dt.tz_localize(pytz.utc)
