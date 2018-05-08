@@ -111,14 +111,17 @@ def load_full_test(features):
     in_file = 'cache/feat_test.h5'
     print('Loading', in_file)
     dataset = pandas.read_hdf(in_file)
+    # Restore the orginal order
+    dataset = dataset[features]
+    dataset.sort_index(inplace=True)
     x = dataset.as_matrix(columns=features)
     return x
 
-def submit(params):
+def submit(features, params):
     """Creates and saves a submission."""
-    x_train, y_train = load_full_train(params['n_downsample'])
+    x_train, y_train = load_full_train(features, params['n_downsample'])
     dtrain = xgboost.DMatrix(x_train, label=y_train)
-    x_test = load_full_test()
+    x_test = load_full_test(features)
     dtest = xgboost.DMatrix(x_test)
     tree_params = dict(params['tree_params'])
     tree_params['silent'] = 1
@@ -244,4 +247,10 @@ def evaluate_submission():
             with open('submit_evaluation.txt' , 'a') as stream:
                 stream.write(str((score, num_boost_rounds, features, params)) + '\n')
 
-evaluate_submission()
+#evaluate_submission()
+
+# CV 0.97893
+features = ['app', 'previous_click_per_60m_device_os', 'previous_click_per_60m_ip_device_os_app', 'previous_click_per_60m_device', 'unique_os_per_60m_ip', 'clicks_per_60m_device_os', 'unique_channel_per_60m_ip', 'unique_device_per_60m_ip', 'day_seconds', 'previous_click_per_60m_ip_device_os_channel', 'clicks_per_60m_os', 'clicks_per_60m_ip_device_app', 'previous_click_per_60m_os', 'os', 'clicks_per_60m_ip_app', 'previous_click_per_60m_device_channel', 'previous_click_per_60m_channel', 'channel', 'previous_click_per_60m_ip_os_app', 'clicks_per_60m_ip_os_app_channel', 'previous_click_per_60m_ip_device_channel', 'previous_click_per_60m_ip', 'device', 'clicks_per_60m_ip_os', 'clicks_per_60m_ip_device_os_channel', 'clicks_per_60m_ip_device_os_app', 'previous_click_per_60m_ip_app']
+params = {'tree_params': {'subsample': 0.9, 'min_child_weight': 3, 'max_depth': 11, 'colsample_bytree': 0.9, 'scale_pos_weight': 19, 'tree_method': 'exact', 'eta': 0.05}, 'num_boost_round': 147, 'n_downsample': 19}
+
+submit(features, params)
